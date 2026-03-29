@@ -21,7 +21,7 @@ import PronounceButton from "@/components/PronounceButton";
 import { CheckCircle2, Keyboard, RotateCcw, Sparkles, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-type Level = 1 | 2 | 3 | 4 | 5;
+type Level = 1 | 2 | 3 | 4 | 5 | 6;
 
 type QChoice = {
   answer: VocabWord;
@@ -76,10 +76,11 @@ export default function Play() {
 
   const levelTitle: Record<Level, string> = {
     1: "第1关：看图 + 解释 + 例句",
-    2: "第2关：只有解释",
+    2: "第2关：发音 + 解释",
     3: "第3关：只有发音",
-    4: "第4关：拼字母",
-    5: "第5关：手打单词",
+    4: "第4关：只有解释（无发音）",
+    5: "第5关：拼字母",
+    6: "第6关：手打单词",
   };
 
   const current = choiceQs[idx];
@@ -95,18 +96,18 @@ export default function Play() {
   }
 
   function nextLevel() {
-    if (level === 5) {
-      toast.success("五关通关！")
+    if (level === 6) {
+      toast.success("六关通关！")
       return;
     }
-    setLevel((l) => (Math.min(5, (l + 1) as Level) as Level));
+    setLevel((l) => (Math.min(6, (l + 1) as Level) as Level));
     setIdx(0);
     setStreak(0);
     setDoneLevel(false);
   }
 
   function finishRunMaybe() {
-    if (level !== 5) return;
+    if (level !== 6) return;
     const p = loadProgress();
     // 这里先用 bestSpell 作为“闯关最高分”的临时容器，避免改动 storage 结构
     saveProgress({ ...p, bestSpell: Math.max(p.bestSpell, score), masteredIds: [...p.masteredIds] });
@@ -131,7 +132,7 @@ export default function Play() {
   function goNextQuestion() {
     if (idx >= questionsPerLevel - 1) {
       setDoneLevel(true);
-      if (level === 5) finishRunMaybe();
+      if (level === 6) finishRunMaybe();
     } else {
       setIdx((i) => i + 1);
     }
@@ -176,7 +177,7 @@ export default function Play() {
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.18 }}
                   >
-                    {level <= 3 ? (
+                    {level <= 4 ? (
                       <LevelChoice
                         level={level}
                         q={current}
@@ -191,7 +192,7 @@ export default function Play() {
                           onWrong();
                         }}
                       />
-                    ) : level === 4 ? (
+                    ) : level === 5 ? (
                       <LevelArrangeLetters
                         word={current.answer}
                         streak={streak}
@@ -230,10 +231,10 @@ export default function Play() {
                       本关完成！当前得分：{score}
                     </div>
                     <div className="text-sm text-muted-foreground mt-1">
-                      {level < 5 ? "准备进入下一关？" : "你已经完成五关卡！"}
+                      {level < 6 ? "准备进入下一关？" : "你已经完成六关卡！"}
                     </div>
                     <div className="mt-3 flex gap-2">
-                      {level < 5 ? (
+                      {level < 6 ? (
                         <Button className="rounded-2xl" onClick={nextLevel}>
                           进入第{level + 1}关
                         </Button>
@@ -260,8 +261,9 @@ export default function Play() {
                   <div>• 1关：用“看图+解释”建立理解</div>
                   <div>• 2关：只靠解释抓住词义</div>
                   <div>• 3关：只听发音能选对</div>
-                  <div>• 4关：听音拼写（字母拼图）</div>
-                  <div>• 5关：听音默写（最难）</div>
+                  <div>• 4关：只看英文解析能选对</div>
+                  <div>• 5关：听音拼写（字母拼图）</div>
+                  <div>• 6关：听音默写（最难）</div>
                 </div>
               </CardContent>
             </Card>
@@ -298,7 +300,8 @@ function LevelChoice({
 }) {
   const gain = Math.min(20, 10 + streak * 2);
   const showImg = level === 1;
-  const showMeaning = level === 1 || level === 2;
+  const showAudio = level !== 4;
+  const showMeaning = level === 1 || level === 2 || level === 4;
   const showExample = level === 1;
 
   const exampleMasked = useMemo(() => maskWordInSentence(q.answer.exampleEasyEn, q.answer.word), [q.answer]);
@@ -308,7 +311,7 @@ function LevelChoice({
       <div className="rounded-2xl overflow-hidden border border-border bg-muted/30">
         {showImg ? (
           <img src={q.answer.imageSrc} alt={q.answer.word} className="h-56 w-full object-cover" />
-        ) : (
+        ) : showAudio ? (
           <div className="h-56 w-full grid place-items-center">
             <div className="text-center">
               <div className="text-xs text-muted-foreground">Only audio</div>
@@ -317,13 +320,22 @@ function LevelChoice({
               </div>
             </div>
           </div>
+        ) : (
+          <div className="h-56 w-full grid place-items-center">
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">Only meaning</div>
+              <div className="mt-2 text-lg font-extrabold px-6">{q.answer.meaningEasyEn}</div>
+            </div>
+          </div>
         )}
 
         <div className="p-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-bold">听发音</div>
-            <PronounceButton text={q.answer.word} size="sm" variant="outline" />
-          </div>
+          {showAudio && (
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-bold">听发音</div>
+              <PronounceButton text={q.answer.word} size="sm" variant="outline" />
+            </div>
+          )}
 
           {showMeaning && (
             <div className="mt-3">
@@ -435,7 +447,7 @@ function LevelArrangeLetters({
           <div className="text-sm font-bold">听发音</div>
           <PronounceButton text={word.word} size="sm" variant="outline" />
         </div>
-        <div className="mt-3 text-xs text-muted-foreground">第4关：只有发音 + 打乱字母</div>
+        <div className="mt-3 text-xs text-muted-foreground">第5关：只有发音 + 打乱字母</div>
         <div className="mt-4 rounded-2xl border border-border bg-card px-4 py-3">
           <div className="text-xs text-muted-foreground">你拼出来的是</div>
           <div className="mt-1 text-2xl font-black tracking-wider min-h-[32px]">{attempt || ""}</div>
@@ -508,7 +520,7 @@ function LevelTypeWord({
           <div className="text-sm font-bold">只听发音</div>
           <PronounceButton text={word.word} size="sm" variant="outline" />
         </div>
-        <div className="mt-3 text-xs text-muted-foreground">第5关：只有发音，写出正确的生词</div>
+        <div className="mt-3 text-xs text-muted-foreground">第6关：只有发音，写出正确的生词</div>
         <div className="mt-4 rounded-2xl border border-border bg-card px-4 py-3">
           <div className="text-xs text-muted-foreground">请输入单词（不区分大小写）</div>
           <input
